@@ -1,12 +1,12 @@
 using System.Numerics;
 using Silk.NET.OpenGL;
 
-namespace CreateGame.Runtime;
+namespace CreateGame.Engine;
 
 public class Shader : IDisposable
 {
-    private uint _handle;
-    private GL _gl;
+    private readonly uint _handle;
+    private readonly GL _gl;
 
     // cache variables
     private readonly Dictionary<string, int> _uniformLocationCache = [];

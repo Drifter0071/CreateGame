@@ -1,6 +1,6 @@
 using System.Numerics;
 
-namespace CreateGame.Runtime;
+namespace CreateGame.Engine;
 
 public interface IBody3D
 {
@@ -12,6 +12,7 @@ public abstract class Volume3D : IBody3D
 {
     public Vector3 Position { get; set; }
     public Vector3 Size { get; set; }
+    public bool IsVisible { get; set; } = true;
 
     public uint VertexArrayObject { get; protected set; }
 

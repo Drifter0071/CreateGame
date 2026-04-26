@@ -1,6 +1,6 @@
 using Silk.NET.OpenGL;
 
-namespace CreateGame.Runtime;
+namespace CreateGame.Engine;
 
 public class Renderer
 {

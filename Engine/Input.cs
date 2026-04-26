@@ -1,7 +1,7 @@
 using Silk.NET.Input;
 using System.Numerics;
 
-namespace CreateGame.Runtime;
+namespace CreateGame.Engine;
 
 public class Input
 {

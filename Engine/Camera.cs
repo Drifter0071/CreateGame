@@ -1,6 +1,6 @@
 using System.Numerics;
 
-namespace CreateGame.Runtime;
+namespace CreateGame.Engine;
 
 public class Camera
 {

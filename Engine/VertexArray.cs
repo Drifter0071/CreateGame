@@ -1,15 +1,15 @@
 using Silk.NET.OpenGL;
 
-namespace CreateGame.Runtime;
+namespace CreateGame.Engine;
 
 public class VertexArray<TVertex, TIndex> : IDisposable
     where TVertex : unmanaged
     where TIndex : unmanaged
 {
-    private uint _handle;
-    private uint _vbo;
-    private uint _ebo;
-    private GL _gl = null!;
+    private readonly uint _handle;
+    private readonly uint _vbo;
+    private readonly uint _ebo;
+    private readonly GL _gl = null!;
 
     public VertexArray(GL gl, Span<TVertex> vertecies, Span<TIndex> indices)
     {

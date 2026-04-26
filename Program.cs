@@ -1,4 +1,4 @@
-﻿using CreateGame.Runtime;
+﻿using CreateGame.Engine;
 
 namespace CreateGame;
 
@@ -6,7 +6,7 @@ public class Program
 {
         public static void Main()
         {
-                EngineWindow game = new();
+                GameWindow game = new();
                 game.Run();
         }
 }
