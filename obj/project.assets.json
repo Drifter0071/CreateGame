@@ -1,5 +1,5 @@
 {
-  "version": 3,
+  "version": 4,
   "targets": {
     "net10.0": {
       "Microsoft.DotNet.PlatformAbstractions/3.1.6": {
@@ -500,19 +500,19 @@
     ]
   },
   "packageFolders": {
-    "C:\\Users\\soriy\\.nuget\\packages\\": {}
+    "C:\\Users\\tsar\\.nuget\\packages\\": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\soriy\\Documents\\DEV\\CreateGame\\CreateGame.csproj",
+      "projectUniqueName": "c:\\Users\\tsar\\Documents\\GitRepos\\CreateGame\\CreateGame.csproj",
       "projectName": "CreateGame",
-      "projectPath": "C:\\Users\\soriy\\Documents\\DEV\\CreateGame\\CreateGame.csproj",
-      "packagesPath": "C:\\Users\\soriy\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\soriy\\Documents\\DEV\\CreateGame\\obj\\",
+      "projectPath": "c:\\Users\\tsar\\Documents\\GitRepos\\CreateGame\\CreateGame.csproj",
+      "packagesPath": "C:\\Users\\tsar\\.nuget\\packages\\",
+      "outputPath": "c:\\Users\\tsar\\Documents\\GitRepos\\CreateGame\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
-        "C:\\Users\\soriy\\AppData\\Roaming\\NuGet\\NuGet.Config",
+        "C:\\Users\\tsar\\AppData\\Roaming\\NuGet\\NuGet.Config",
         "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
       ],
       "originalTargetFrameworks": [
@@ -524,6 +524,7 @@
       },
       "frameworks": {
         "net10.0": {
+          "framework": "net10.0",
           "targetAlias": "net10.0",
           "projectReferences": {}
         }
@@ -538,10 +539,11 @@
         "auditLevel": "low",
         "auditMode": "all"
       },
-      "SdkAnalysisLevel": "10.0.200"
+      "SdkAnalysisLevel": "10.0.300"
     },
     "frameworks": {
       "net10.0": {
+        "framework": "net10.0",
         "targetAlias": "net10.0",
         "dependencies": {
           "Silk.NET.Input": {
@@ -577,7 +579,7 @@
             "privateAssets": "all"
           }
         },
-        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.201/PortableRuntimeIdentifierGraph.json",
+        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.300-preview.0.26177.108/PortableRuntimeIdentifierGraph.json",
         "packagesToPrune": {
           "Microsoft.CSharp": "(,4.7.32767]",
           "Microsoft.VisualBasic": "(,10.4.32767]",
