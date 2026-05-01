@@ -1,15 +1,14 @@
 using Silk.NET.OpenGL;
-using System.Linq;
 
 namespace CreateGame.Engine;
 
-public class DrawService
+public static class DrawService
 {
-    private readonly List<Volume3D> _objects = [];
-    private readonly List<PrimitiveObject> _staticColliders = [];
-    private VertexArray<float, uint> _unitCubeVao = null!;
+    private static readonly List<Volume3D> _objects = [];
+    private static readonly List<PrimitiveObject> _staticColliders = [];
+    private static VertexArray<float, uint> _unitCubeVao = null!;
 
-    public void Register(Volume3D obj, bool isCollidable = false)
+    public static void Register(Volume3D obj, bool isCollidable = false)
     {
         _objects.Add(obj);
 
@@ -19,12 +18,9 @@ public class DrawService
         }
     }
 
-    public List<PrimitiveObject> GetStaticObjects()
-    {
-        return _staticColliders;
-    }
+    public static List<PrimitiveObject> GetStaticObjects() => _staticColliders;
 
-    public void Initialize(Renderer renderer)
+    public static void Initialize(Renderer renderer)
     {
         // 1x1x1 cube data
         float[] vertices = {
@@ -57,7 +53,7 @@ public class DrawService
         renderer.Gl.FrontFace(FrontFaceDirection.Ccw);
     }
 
-    public void DrawAll(Renderer renderer)
+    public static void DrawAll(Renderer renderer)
     {
         _unitCubeVao.Bind();
         foreach (var obj in _objects)

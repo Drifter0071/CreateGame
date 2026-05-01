@@ -3,14 +3,14 @@ using CreateGame.Engine;
 
 namespace CreateGame.Physics;
 
-public class PhysicsEngine
+public static class PhysicsEngine
 {
-    private readonly List<RigidBody3D> _bodies = [];
-    public Vector3 Gravity { get; set; } = new Vector3(0, -28.1f, 0);
+    private static readonly List<RigidBody3D> _bodies = [];
+    public static Vector3 Gravity { get; set; } = new Vector3(0, -28.1f, 0);
 
-    public void Register(RigidBody3D body) => _bodies.Add(body);
+    public static void Register(RigidBody3D body) => _bodies.Add(body);
 
-    public void Update(float deltaTime, List<PrimitiveObject> staticColliders)
+    public static void Update(float deltaTime, List<PrimitiveObject> staticColliders)
     {
         foreach (var body in _bodies)
         {

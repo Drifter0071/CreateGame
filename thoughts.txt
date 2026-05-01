@@ -1,0 +1,357 @@
+================================================================================
+  TUTORIAL: RunService + IBody3D Rotation
+  CreateGame Engine Design Notes
+================================================================================
+
+OVERVIEW
+--------
+Two things to add to the engine:
+
+  1. RunService     — a central event hub for per-frame and startup callbacks,
+                      replacing the ad-hoc use of GameWindow.OnLoad / OnUpdate
+                      for game-logic concerns.
+
+  2. Rotation       — a Quaternion/Euler rotation field on IBody3D (and
+                      Volume3D), so that PrimitiveObject and RigidBody3D can
+                      be oriented in 3D space, and DrawService picks that up
+                      automatically when building the model matrix.
+
+
+================================================================================
+  PART 1 — RunService
+================================================================================
+
+WHY
+---
+Right now all game logic lives inside GameWindow, which is an engine-level
+class.  That couples world-setup code (adding a baseplate, creating a player)
+with window-level concerns (projection matrix, shader setup, physics step).
+
+The goal is a RunService singleton that any game-level code can access.
+It exposes two signals:
+
+  RunService.RenderStarted  — fires once, right after the OpenGL context and
+                              DrawService are ready (equivalent to OnLoad but
+                              only for scene setup).
+
+  RunService.RenderStepped  — fires every frame with a deltaTime argument
+                              (equivalent to OnUpdate but only for game logic).
+
+Callers connect lambdas / action delegates:
+
+    RunService.RenderStarted.Connect(() =>
+    {
+        var block = new PrimitiveObject { ... };
+        drawService.Register(block, true);
+    });
+
+    RunService.RenderStepped.Connect((dt) =>
+    {
+        block.Rotation = Quaternion.CreateFromAxisAngle(Vector3.UnitY, angle);
+        angle += dt;
+    });
+
+GameWindow then becomes purely a host that fires RunService events at the
+right moments — it no longer needs to know anything about the scene.
+
+
+HOW TO DESIGN IT
+----------------
+
+Step 1 — Signal<T> helper class
+--------------------------------
+A Signal wraps a list of delegates and a Connect/Fire API.
+Two variants are needed:
+
+  Signal      — parameterless, used for RenderStarted.
+  Signal<T>   — one parameter of type T, used for RenderStepped (passes dt).
+
+Rough sketch:
+
+    // Engine/Signal.cs
+    namespace CreateGame.Engine;
+
+    public class Signal
+    {
+        private readonly List<Action> _listeners = [];
+
+        public void Connect(Action callback)
+            => _listeners.Add(callback);
+
+        // called by the engine
+        internal void Fire()
+        {
+            foreach (var cb in _listeners) cb();
+        }
+    }
+
+    public class Signal<T>
+    {
+        private readonly List<Action<T>> _listeners = [];
+
+        public void Connect(Action<T> callback)
+            => _listeners.Add(callback);
+
+        internal void Fire(T arg)
+        {
+            foreach (var cb in _listeners) cb(arg);
+        }
+    }
+
+Both are plain data structures — no threading, no heap allocations per frame
+beyond what the caller's lambda already costs.
+
+
+Step 2 — RunService class
+--------------------------
+A static-or-singleton class that owns both signals.
+
+    // Engine/RunService.cs
+    namespace CreateGame.Engine;
+
+    public static class RunService
+    {
+        // Fires once when the scene is ready to be populated.
+        public static readonly Signal RenderStarted = new();
+
+        // Fires every frame; parameter is delta-time in seconds.
+        public static readonly Signal<float> RenderStepped = new();
+    }
+
+Because it is static, any file in the project can reach it without needing a
+reference passed around.  This is intentional — it mirrors how Roblox's
+RunService works and keeps game-level code self-contained.
+
+
+Step 3 — Wire GameWindow to RunService
+----------------------------------------
+In GameWindow, change OnLoad and OnUpdate so they fire the signals
+*after* doing the engine-level work they must always do:
+
+    private void OnLoad()
+    {
+        // --- engine concerns (stay in GameWindow) ---
+        _renderer     = new Renderer(GL.GetApi(_window));
+        _input        = new Input(_window.CreateInput());
+        _camera       = new Camera(new Vector3(0, 15, 20));
+        _shader       = new Shader(_renderer.Gl!, "Shaders/shader.vert", "Shaders/shader.frag");
+        _renderer.ActiveShader = _shader;
+        _drawService.Initialize(_renderer);
+
+        _projectionMatrix = Matrix4x4.CreatePerspectiveFieldOfView(
+            MathF.PI / 4f, 1280f / 720f, 0.1f, 1000.0f);
+
+        // --- game concerns — let RunService listeners handle them ---
+        RunService.RenderStarted.Fire();
+    }
+
+    private void OnUpdate(double deltaTime)
+    {
+        float dt = (float)deltaTime;
+
+        // --- engine concerns ---
+        _input.Update();
+        _camera.Look(_input.MouseDelta);
+        // ... movement, physics, camera attach ...
+
+        // --- game concerns ---
+        RunService.RenderStepped.Fire(dt);
+    }
+
+Notice: the player body setup and scene objects move OUT of GameWindow.
+They go into a "game script" — a class or a top-level Program.cs block that
+calls RunService.RenderStarted.Connect(...).
+
+IMPORTANT: the DrawService and PhysicsEngine references need to be accessible
+by the listener lambdas.  Options:
+  a) Keep them as fields on GameWindow and expose them (e.g. public properties
+     or pass them into the Signal.Fire call via a context object).
+  b) Make DrawService and PhysicsEngine singletons / static, like RunService.
+  c) Capture them via closures when connecting — keep GameWindow fields but
+     connect the lambdas inside GameWindow's constructor before Run() is called.
+
+Option (c) is the lowest-friction path: the game code lives in Program.cs and
+captures the services from a "Game" wrapper that constructs them:
+
+    // Program.cs (game code, not engine code)
+    var game    = new GameWindow();   // creates DrawService, PhysicsEngine internally
+    var draw    = game.DrawService;   // exposed as public property
+    var physics = game.Physics;       // exposed as public property
+
+    RunService.RenderStarted.Connect(() =>
+    {
+        var baseplate = new PrimitiveObject
+        {
+            Position = new Vector3(0, -5, 0),
+            Size     = new Vector3(200, 10, 200),
+            Color    = new Vector4(0.3f, 0.3f, 0.3f, 1.0f)
+        };
+        draw.Register(baseplate, true);
+    });
+
+    float angle = 0f;
+    PrimitiveObject? spinner = null;
+
+    RunService.RenderStarted.Connect(() =>
+    {
+        spinner = new PrimitiveObject
+        {
+            Position = new Vector3(0, 2, 0),
+            Size     = new Vector3(2, 2, 2),
+            Color    = new Vector4(0.2f, 0.6f, 1.0f, 1.0f)
+        };
+        draw.Register(spinner);
+    });
+
+    RunService.RenderStepped.Connect((dt) =>
+    {
+        if (spinner == null) return;
+        angle += dt;
+        spinner.Rotation = Quaternion.CreateFromAxisAngle(Vector3.UnitY, angle);
+    });
+
+    game.Run();
+
+This is clean: engine stays ignorant of game content, game content stays out
+of the engine.
+
+
+================================================================================
+  PART 2 — Rotation on IBody3D
+================================================================================
+
+WHY
+---
+Currently PrimitiveObject.Draw() builds the model matrix as:
+
+    Matrix4x4.CreateScale(Size) * Matrix4x4.CreateTranslation(Position)
+
+There is no orientation term.  Adding a Quaternion rotation field and
+inserting CreateFromQuaternion into the model matrix is all that is needed.
+
+
+HOW TO DESIGN IT
+----------------
+
+Step 1 — Add Rotation to IBody3D
+----------------------------------
+IBody3D is the shared interface.  Add the property there so that any code
+working with IBody3D can read/write rotation generically.
+
+    public interface IBody3D
+    {
+        Vector3    Position { get; set; }
+        Vector3    Size     { get; set; }
+        Quaternion Rotation { get; set; }   // <-- new
+    }
+
+Default value should be Quaternion.Identity (no rotation) so existing objects
+are unaffected.
+
+
+Step 2 — Implement Rotation in Volume3D
+-----------------------------------------
+Volume3D is the abstract base that PrimitiveObject and RigidBody3D inherit.
+Add the property with the identity default:
+
+    public abstract class Volume3D : IBody3D
+    {
+        public Vector3    Position { get; set; }
+        public Vector3    Size     { get; set; }
+        public Quaternion Rotation { get; set; } = Quaternion.Identity;  // <-- new
+        public bool       IsVisible { get; set; } = true;
+        // ...
+    }
+
+All subclasses (PrimitiveObject, RigidBody3D) inherit this automatically.
+No changes needed to RigidBody3D's own fields unless you want physics-aware
+torque — that is a separate discussion.
+
+
+Step 3 — Update PrimitiveObject.Draw() to use Rotation
+--------------------------------------------------------
+The model matrix for a 3D object is conventionally:
+
+    Model = Scale * Rotation * Translation
+
+In System.Numerics that is:
+
+    var model =
+        Matrix4x4.CreateScale(Size)
+      * Matrix4x4.CreateFromQuaternion(Rotation)
+      * Matrix4x4.CreateTranslation(Position);
+
+    renderer.ActiveShader!.SetMatrix4("uModel", model);
+    renderer.ActiveShader.SetVector4("uColor", Color);
+
+Because Rotation defaults to Quaternion.Identity, existing objects that never
+set a rotation will produce a pure Scale * Translation matrix — identical
+behaviour to before.
+
+DrawService.DrawAll() calls obj.Draw(renderer) already, so it automatically
+benefits from this change. No edits to DrawService are required.
+
+
+Step 4 — Using Rotation from game code
+----------------------------------------
+Set Rotation using any of the standard Quaternion factory methods:
+
+  // Spin around Y axis (useful in RenderStepped):
+  block.Rotation = Quaternion.CreateFromAxisAngle(Vector3.UnitY, angle);
+
+  // Fixed 45-degree tilt:
+  block.Rotation = Quaternion.CreateFromAxisAngle(Vector3.UnitX, MathF.PI / 4f);
+
+  // Combine rotations (yaw then pitch):
+  block.Rotation = Quaternion.CreateFromYawPitchRoll(yaw, pitch, 0f);
+
+Because Volume3D.Rotation is a property, you can mutate it every frame inside
+a RenderStepped listener and the next DrawAll call will pick it up.
+
+
+================================================================================
+  PUTTING IT ALL TOGETHER — Execution Flow
+================================================================================
+
+  Program.cs
+    │
+    ├── Connect RenderStarted listener(s)  ← scene setup
+    ├── Connect RenderStepped listener(s)  ← per-frame logic
+    └── game.Run()
+          │
+          ├── GameWindow.OnLoad()
+          │     ├── init renderer, shader, camera   (engine)
+          │     ├── drawService.Initialize()        (engine)
+          │     └── RunService.RenderStarted.Fire() → listeners add objects
+          │
+          └── (loop)
+                ├── GameWindow.OnUpdate(dt)
+                │     ├── input, physics, camera   (engine)
+                │     └── RunService.RenderStepped.Fire(dt) → listeners rotate etc.
+                │
+                └── GameWindow.OnRender(dt)
+                      ├── ClearScreen
+                      ├── shader + camera uniforms
+                      └── drawService.DrawAll()     ← picks up updated Rotation
+
+
+================================================================================
+  SUMMARY OF FILES TO CREATE / MODIFY
+================================================================================
+
+  Engine/Signal.cs          CREATE  — Signal and Signal<T> classes
+  Engine/RunService.cs      CREATE  — static class with RenderStarted + RenderStepped
+  Engine/Base3D.cs          MODIFY  — add Rotation to IBody3D and Volume3D;
+                                      update PrimitiveObject.Draw() model matrix
+  Engine/GameWindow.cs      MODIFY  — fire RunService events; move scene-setup
+                                      code out (into Program.cs / a Game class);
+                                      expose DrawService and PhysicsEngine if needed
+  Program.cs                MODIFY  — connect RenderStarted / RenderStepped listeners
+                                      with scene setup and per-frame logic
+
+
+  NO changes needed to:
+    DrawService.cs   — DrawAll already calls obj.Draw(), which will use Rotation
+    Camera.cs        — camera is engine-level, stays in GameWindow
+    Physics/*        — rotation is visual-only for now; physics still uses AABB
+    Shader.cs        — uModel is already a mat4, can hold the full SRT matrix
